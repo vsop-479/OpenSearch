@@ -35,7 +35,7 @@ import org.apache.lucene.util.ThreadInterruptedException;
 import org.opensearch.OpenSearchException;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.SetOnce;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamInput;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -45,7 +45,7 @@ import java.util.Set;
  * A utility class for multi threaded operation that needs to be cancellable via interrupts. Every cancellable operation should be
  * executed via {@link #execute(Interruptible)}, which will capture the executing thread and make sure it is interrupted in the case
  * of cancellation.
- *
+ * <p>
  * Cancellation policy: This class does not support external interruption via <code>Thread#interrupt()</code>. Always use #cancel() instead.
  *
  * @opensearch.internal

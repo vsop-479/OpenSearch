@@ -21,7 +21,7 @@ public interface TranslogManager {
     /**
      * Rolls the translog generation and cleans unneeded.
      */
-    void rollTranslogGeneration() throws TranslogException;
+    void rollTranslogGeneration() throws TranslogException, IOException;
 
     /**
      * Performs recovery from the transaction log up to {@code recoverUpToSeqNo} (inclusive).
@@ -131,4 +131,6 @@ public interface TranslogManager {
     Clean up if any needed on deletion of index
      */
     void onDelete();
+
+    Translog.TranslogGeneration getTranslogGeneration();
 }

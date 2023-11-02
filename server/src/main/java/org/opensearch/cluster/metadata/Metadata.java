@@ -32,8 +32,8 @@
 
 package org.opensearch.cluster.metadata;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.CollectionUtil;
 import org.opensearch.action.AliasesRequest;
 import org.opensearch.cluster.ClusterState;
@@ -49,24 +49,25 @@ import org.opensearch.cluster.coordination.CoordinationMetadata;
 import org.opensearch.cluster.decommission.DecommissionAttributeMetadata;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.regex.Regex;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.Strings;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.index.Index;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.NamedObjectNotFoundException;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.gateway.MetadataStateFormat;
-import org.opensearch.index.Index;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.plugins.MapperPlugin;
-import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -106,6 +107,22 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
     public static final String ALL = "_all";
     public static final String UNKNOWN_CLUSTER_UUID = Strings.UNKNOWN_UUID_VALUE;
     public static final Pattern NUMBER_PATTERN = Pattern.compile("[0-9]+$");
+
+    /**
+     * Utility to identify whether input index uses SEGMENT replication strategy in established cluster state metadata.
+     * Note: Method intended for use by other plugins as well.
+     *
+     * @param indexName Index name
+     * @return true if index uses SEGMENT replication, false otherwise
+     */
+    public boolean isSegmentReplicationEnabled(String indexName) {
+        return Optional.ofNullable(index(indexName))
+            .map(
+                indexMetadata -> ReplicationType.parseString(indexMetadata.getSettings().get(IndexMetadata.SETTING_REPLICATION_TYPE))
+                    .equals(ReplicationType.SEGMENT)
+            )
+            .orElse(false);
+    }
 
     /**
      * Context of the XContent.
@@ -905,19 +922,26 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         if (!metadata1.coordinationMetadata.equals(metadata2.coordinationMetadata)) {
             return false;
         }
-        if (!metadata1.persistentSettings.equals(metadata2.persistentSettings)) {
-            return false;
-        }
         if (!metadata1.hashesOfConsistentSettings.equals(metadata2.hashesOfConsistentSettings)) {
-            return false;
-        }
-        if (!metadata1.templates.equals(metadata2.templates())) {
             return false;
         }
         if (!metadata1.clusterUUID.equals(metadata2.clusterUUID)) {
             return false;
         }
         if (metadata1.clusterUUIDCommitted != metadata2.clusterUUIDCommitted) {
+            return false;
+        }
+        return isGlobalResourcesMetadataEquals(metadata1, metadata2);
+    }
+
+    /**
+     * Compares Metadata entities persisted in Remote Store.
+     */
+    public static boolean isGlobalResourcesMetadataEquals(Metadata metadata1, Metadata metadata2) {
+        if (!metadata1.persistentSettings.equals(metadata2.persistentSettings)) {
+            return false;
+        }
+        if (!metadata1.templates.equals(metadata2.templates())) {
             return false;
         }
         // Check if any persistent metadata needs to be saved
@@ -1121,12 +1145,14 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         private final Map<String, IndexMetadata> indices;
         private final Map<String, IndexTemplateMetadata> templates;
         private final Map<String, Custom> customs;
+        private final Metadata previousMetadata;
 
         public Builder() {
             clusterUUID = UNKNOWN_CLUSTER_UUID;
             indices = new HashMap<>();
             templates = new HashMap<>();
             customs = new HashMap<>();
+            previousMetadata = null;
             indexGraveyard(IndexGraveyard.builder().build()); // create new empty index graveyard to initialize
         }
 
@@ -1141,6 +1167,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
             this.indices = new HashMap<>(metadata.indices);
             this.templates = new HashMap<>(metadata.templates);
             this.customs = new HashMap<>(metadata.customs);
+            this.previousMetadata = metadata;
         }
 
         public Builder put(IndexMetadata.Builder indexMetadataBuilder) {
@@ -1425,6 +1452,44 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
         }
 
         public Metadata build() {
+            DataStreamMetadata dataStreamMetadata = (DataStreamMetadata) this.customs.get(DataStreamMetadata.TYPE);
+            DataStreamMetadata previousDataStreamMetadata = (previousMetadata != null)
+                ? (DataStreamMetadata) this.previousMetadata.customs.get(DataStreamMetadata.TYPE)
+                : null;
+
+            boolean recomputeRequiredforIndicesLookups = (previousMetadata == null)
+                || (indices.equals(previousMetadata.indices) == false)
+                || (previousDataStreamMetadata != null && previousDataStreamMetadata.equals(dataStreamMetadata) == false)
+                || (dataStreamMetadata != null && dataStreamMetadata.equals(previousDataStreamMetadata) == false);
+
+            return (recomputeRequiredforIndicesLookups == false)
+                ? buildMetadataWithPreviousIndicesLookups()
+                : buildMetadataWithRecomputedIndicesLookups();
+        }
+
+        protected Metadata buildMetadataWithPreviousIndicesLookups() {
+            return new Metadata(
+                clusterUUID,
+                clusterUUIDCommitted,
+                version,
+                coordinationMetadata,
+                transientSettings,
+                persistentSettings,
+                hashesOfConsistentSettings,
+                indices,
+                templates,
+                customs,
+                Arrays.copyOf(previousMetadata.allIndices, previousMetadata.allIndices.length),
+                Arrays.copyOf(previousMetadata.visibleIndices, previousMetadata.visibleIndices.length),
+                Arrays.copyOf(previousMetadata.allOpenIndices, previousMetadata.allOpenIndices.length),
+                Arrays.copyOf(previousMetadata.visibleOpenIndices, previousMetadata.visibleOpenIndices.length),
+                Arrays.copyOf(previousMetadata.allClosedIndices, previousMetadata.allClosedIndices.length),
+                Arrays.copyOf(previousMetadata.visibleClosedIndices, previousMetadata.visibleClosedIndices.length),
+                Collections.unmodifiableSortedMap(previousMetadata.indicesLookup)
+            );
+        }
+
+        protected Metadata buildMetadataWithRecomputedIndicesLookups() {
             // TODO: We should move these datastructures to IndexNameExpressionResolver, this will give the following benefits:
             // 1) The datastructures will be rebuilt only when needed. Now during serializing we rebuild these datastructures
             // while these datastructures aren't even used.
@@ -1586,8 +1651,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
                 IndexAbstraction existing = indicesLookup.put(indexMetadata.getIndex().getName(), index);
                 assert existing == null : "duplicate for " + indexMetadata.getIndex();
 
-                for (final AliasMetadata aliasCursor : indexMetadata.getAliases().values()) {
-                    AliasMetadata aliasMetadata = aliasCursor;
+                for (final AliasMetadata aliasMetadata : indexMetadata.getAliases().values()) {
                     indicesLookup.compute(aliasMetadata.getAlias(), (aliasName, alias) -> {
                         if (alias == null) {
                             return new IndexAbstraction.Alias(aliasMetadata, indexMetadata);
@@ -1609,7 +1673,7 @@ public class Metadata implements Iterable<IndexMetadata>, Diffable<Metadata>, To
 
         /**
          * Validates there isn't any index with a name that would clash with the future backing indices of the existing data streams.
-         *
+         * <p>
          * E.g., if data stream `foo` has backing indices [`.ds-foo-000001`, `.ds-foo-000002`] and the indices lookup contains indices
          * `.ds-foo-000001`, `.ds-foo-000002` and `.ds-foo-000006` this will throw an IllegalStateException (as attempting to rollover the
          * `foo` data stream from generation 5 to 6 will not be possible)

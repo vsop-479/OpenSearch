@@ -33,8 +33,8 @@
 package org.opensearch.search.aggregations.bucket.composite;
 
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.Aggregations;
@@ -142,10 +142,10 @@ public class InternalComposite extends InternalMultiBucketAggregation<InternalCo
 
     @Override
     public InternalComposite create(List<InternalBucket> newBuckets) {
-        /**
-         * This is used by pipeline aggregations to filter/remove buckets so we
-         * keep the <code>afterKey</code> of the original aggregation in order
-         * to be able to retrieve the next page even if all buckets have been filtered.
+        /*
+          This is used by pipeline aggregations to filter/remove buckets so we
+          keep the <code>afterKey</code> of the original aggregation in order
+          to be able to retrieve the next page even if all buckets have been filtered.
          */
         return new InternalComposite(
             name,
@@ -473,8 +473,8 @@ public class InternalComposite extends InternalMultiBucketAggregation<InternalCo
 
         @Override
         public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-            /**
-             * See {@link CompositeAggregation#bucketToXContent}
+            /*
+              See {@link CompositeAggregation#bucketToXContent}
              */
             throw new UnsupportedOperationException("not implemented");
         }

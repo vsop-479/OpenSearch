@@ -33,6 +33,7 @@
 package org.opensearch.snapshots.mockstore;
 
 import com.carrotsearch.randomizedtesting.RandomizedContext;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.CorruptIndexException;
@@ -114,7 +115,7 @@ public class MockRepository extends FsRepository {
         return failureCounter.get();
     }
 
-    private final double randomControlIOExceptionRate;
+    private volatile double randomControlIOExceptionRate;
 
     private final double randomDataFileIOExceptionRate;
 
@@ -137,6 +138,8 @@ public class MockRepository extends FsRepository {
     private volatile boolean blockOnAnyFiles;
 
     private volatile boolean blockOnDataFiles;
+
+    private volatile boolean blockOnSegmentFiles;
 
     private volatile boolean blockOnDeleteIndexN;
 
@@ -189,6 +192,7 @@ public class MockRepository extends FsRepository {
         maximumNumberOfFailures = metadata.settings().getAsLong("max_failure_number", 100L);
         blockOnAnyFiles = metadata.settings().getAsBoolean("block_on_control", false);
         blockOnDataFiles = metadata.settings().getAsBoolean("block_on_data", false);
+        blockOnSegmentFiles = metadata.settings().getAsBoolean("block_on_segment", false);
         blockAndFailOnWriteSnapFile = metadata.settings().getAsBoolean("block_on_snap", false);
         randomPrefix = metadata.settings().get("random", "default");
         waitAfterUnblock = metadata.settings().getAsLong("wait_after_unblock", 0L);
@@ -236,6 +240,7 @@ public class MockRepository extends FsRepository {
         blocked = false;
         // Clean blocking flags, so we wouldn't try to block again
         blockOnDataFiles = false;
+        blockOnSegmentFiles = false;
         blockOnAnyFiles = false;
         blockAndFailOnWriteIndexFile = false;
         blockOnWriteIndexFile = false;
@@ -246,12 +251,24 @@ public class MockRepository extends FsRepository {
         this.notifyAll();
     }
 
+    public void setRandomControlIOExceptionRate(double randomControlIOExceptionRate) {
+        this.randomControlIOExceptionRate = randomControlIOExceptionRate;
+    }
+
     public void blockOnDataFiles(boolean blocked) {
         blockOnDataFiles = blocked;
     }
 
     public void setBlockOnAnyFiles(boolean blocked) {
         blockOnAnyFiles = blocked;
+    }
+
+    public void blockOnSegmentFiles(boolean blocked) {
+        blockOnSegmentFiles = blocked;
+    }
+
+    public void setBlockOnSegmentFiles(boolean blocked) {
+        blockOnSegmentFiles = blocked;
     }
 
     public void setBlockAndFailOnWriteSnapFiles(boolean blocked) {
@@ -301,6 +318,7 @@ public class MockRepository extends FsRepository {
         boolean wasBlocked = false;
         try {
             while (blockOnDataFiles
+                || blockOnSegmentFiles
                 || blockOnAnyFiles
                 || blockAndFailOnWriteIndexFile
                 || blockOnWriteIndexFile
@@ -402,6 +420,8 @@ public class MockRepository extends FsRepository {
                         blockExecutionAndMaybeWait(blobName);
                     } else if (blobName.startsWith("snap-") && blockAndFailOnWriteSnapFile) {
                         blockExecutionAndFail(blobName);
+                    } else if (blockOnSegmentFiles && blobName.contains(".si__")) {
+                        blockExecutionAndMaybeWait(blobName);
                     }
                 }
             }

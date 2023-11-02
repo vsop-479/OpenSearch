@@ -33,7 +33,6 @@ package org.opensearch.repositories;
 
 import org.apache.lucene.index.IndexCommit;
 import org.opensearch.Version;
-import org.opensearch.action.ActionListener;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateUpdateTask;
 import org.opensearch.cluster.SnapshotsInProgress;
@@ -42,17 +41,23 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.component.LifecycleComponent;
+import org.opensearch.common.lifecycle.LifecycleComponent;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.index.shard.ShardId;
 import org.opensearch.index.snapshots.IndexShardSnapshotStatus;
+import org.opensearch.index.snapshots.blobstore.RemoteStoreShardShallowCopySnapshot;
 import org.opensearch.index.store.Store;
+import org.opensearch.index.store.lockmanager.RemoteStoreLockManagerFactory;
 import org.opensearch.indices.recovery.RecoveryState;
 import org.opensearch.snapshots.SnapshotId;
 import org.opensearch.snapshots.SnapshotInfo;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -168,6 +173,25 @@ public interface Repository extends LifecycleComponent {
     );
 
     /**
+     * Deletes snapshots and releases respective lock files from remote store repository.
+     *
+     * @param snapshotIds                   snapshot ids
+     * @param repositoryStateId             the unique id identifying the state of the repository when the snapshot deletion began
+     * @param repositoryMetaVersion         version of the updated repository metadata to write
+     * @param remoteStoreLockManagerFactory RemoteStoreLockManagerFactory to be used for cleaning up remote store lock files
+     * @param listener                      completion listener
+     */
+    default void deleteSnapshotsAndReleaseLockFiles(
+        Collection<SnapshotId> snapshotIds,
+        long repositoryStateId,
+        Version repositoryMetaVersion,
+        RemoteStoreLockManagerFactory remoteStoreLockManagerFactory,
+        ActionListener<RepositoryData> listener
+    ) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Returns snapshot throttle time in nanoseconds
      */
     long getSnapshotThrottleTimeInNanos();
@@ -176,6 +200,16 @@ public interface Repository extends LifecycleComponent {
      * Returns restore throttle time in nanoseconds
      */
     long getRestoreThrottleTimeInNanos();
+
+    /**
+     * Returns restore throttle time in nanoseconds
+     */
+    long getRemoteUploadThrottleTimeInNanos();
+
+    /**
+     * Returns restore throttle time in nanoseconds
+     */
+    long getRemoteDownloadThrottleTimeInNanos();
 
     /**
      * Returns stats on the repository usage
@@ -215,6 +249,13 @@ public interface Repository extends LifecycleComponent {
      * @return true if the repository is read/only
      */
     boolean isReadOnly();
+
+    /**
+     * Returns true if the repository is managed by the system directly and doesn't allow managing the lifetime of the
+     * repository through external APIs
+     * @return true if the repository is system managed
+     */
+    boolean isSystemRepository();
 
     /**
      * Creates a snapshot of the shard based on the index commit point.
@@ -305,6 +346,30 @@ public interface Repository extends LifecycleComponent {
     );
 
     /**
+     * Returns the list of restricted system repository settings that cannot be mutated post repository creation.
+     * @return list of settings
+     */
+    default List<Setting<?>> getRestrictedSystemRepositorySettings() {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Returns Snapshot Shard Metadata for remote store interop enabled snapshot.
+     * <p>
+     * The index can be renamed on restore, hence different {@code shardId} and {@code snapshotShardId} are supplied.
+     * @param snapshotId      snapshot id
+     * @param indexId         id of the index in the repository from which the restore is occurring
+     * @param snapshotShardId shard id (in the snapshot)
+     */
+    default RemoteStoreShardShallowCopySnapshot getRemoteStoreShallowCopyShardMetadata(
+        SnapshotId snapshotId,
+        IndexId indexId,
+        ShardId snapshotShardId
+    ) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Retrieve shard snapshot status for the stored snapshot
      *
      * @param snapshotId snapshot id
@@ -359,10 +424,49 @@ public interface Repository extends LifecycleComponent {
     );
 
     /**
+     * Clones a remote store index shard snapshot.
+     *
+     * @param source                        source snapshot
+     * @param target                        target snapshot
+     * @param shardId                       shard id
+     * @param shardGeneration               shard generation in repo
+     * @param remoteStoreLockManagerFactory remoteStoreLockManagerFactory for cloning metadata lock file
+     * @param listener                      listener to complete with new shard generation once clone has completed
+     */
+    default void cloneRemoteStoreIndexShardSnapshot(
+        SnapshotId source,
+        SnapshotId target,
+        RepositoryShardId shardId,
+        @Nullable String shardGeneration,
+        RemoteStoreLockManagerFactory remoteStoreLockManagerFactory,
+        ActionListener<String> listener
+    ) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Hook that allows a repository to filter the user supplied snapshot metadata in {@link SnapshotsInProgress.Entry#userMetadata()}
      * during snapshot initialization.
      */
     default Map<String, Object> adaptUserMetadata(Map<String, Object> userMetadata) {
         return userMetadata;
     }
+
+    /**
+     * Checks if the repository can be reloaded inplace or not
+     * @return true if the repository can be reloaded inplace, false otherwise
+     */
+    default boolean isReloadable() {
+        return false;
+    }
+
+    /**
+     * Reload the repository inplace
+     */
+    default void reload(RepositoryMetadata repositoryMetadata) {}
+
+    /**
+     * Validate the repository metadata
+     */
+    default void validateMetadata(RepositoryMetadata repositoryMetadata) {}
 }

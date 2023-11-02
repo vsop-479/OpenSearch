@@ -40,7 +40,6 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.OpenSearchException;
 import org.opensearch.Version;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
-import org.opensearch.common.Strings;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexSettings;
@@ -67,6 +66,8 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class NestedQueryBuilderTests extends AbstractQueryTestCase<NestedQueryBuilder> {
@@ -76,26 +77,24 @@ public class NestedQueryBuilderTests extends AbstractQueryTestCase<NestedQueryBu
         mapperService.merge(
             "_doc",
             new CompressedXContent(
-                Strings.toString(
-                    PutMappingRequest.simpleMapping(
-                        TEXT_FIELD_NAME,
-                        "type=text",
-                        INT_FIELD_NAME,
-                        "type=integer",
-                        DOUBLE_FIELD_NAME,
-                        "type=double",
-                        BOOLEAN_FIELD_NAME,
-                        "type=boolean",
-                        DATE_FIELD_NAME,
-                        "type=date",
-                        OBJECT_FIELD_NAME,
-                        "type=object",
-                        GEO_POINT_FIELD_NAME,
-                        "type=geo_point",
-                        "nested1",
-                        "type=nested"
-                    )
-                )
+                PutMappingRequest.simpleMapping(
+                    TEXT_FIELD_NAME,
+                    "type=text",
+                    INT_FIELD_NAME,
+                    "type=integer",
+                    DOUBLE_FIELD_NAME,
+                    "type=double",
+                    BOOLEAN_FIELD_NAME,
+                    "type=boolean",
+                    DATE_FIELD_NAME,
+                    "type=date",
+                    OBJECT_FIELD_NAME,
+                    "type=object",
+                    GEO_POINT_FIELD_NAME,
+                    "type=geo_point",
+                    "nested1",
+                    "type=nested"
+                ).toString()
             ),
             MapperService.MergeReason.MAPPING_UPDATE
         );
@@ -413,5 +412,23 @@ public class NestedQueryBuilderTests extends AbstractQueryTestCase<NestedQueryBu
         NestedQueryBuilder queryBuilder = new NestedQueryBuilder("path", new MatchAllQueryBuilder(), ScoreMode.None);
         OpenSearchException e = expectThrows(OpenSearchException.class, () -> queryBuilder.toQuery(queryShardContext));
         assertEquals("[joining] queries cannot be executed when 'search.allow_expensive_queries' is set to false.", e.getMessage());
+    }
+
+    public void testSetParentFilterInContext() throws Exception {
+        QueryShardContext queryShardContext = createShardContext();
+        QueryBuilder innerQueryBuilder = spy(new MatchAllQueryBuilderTests().createTestQueryBuilder());
+        when(innerQueryBuilder.toQuery(queryShardContext)).thenAnswer(invoke -> {
+            QueryShardContext context = invoke.getArgument(0);
+            if (context.getParentFilter() == null) {
+                throw new Exception("Expect parent filter to be non-null");
+            }
+            return invoke.callRealMethod();
+        });
+        NestedQueryBuilder nqb = new NestedQueryBuilder("nested1", innerQueryBuilder, RandomPicks.randomFrom(random(), ScoreMode.values()));
+
+        assertNull(queryShardContext.getParentFilter());
+        nqb.rewrite(queryShardContext).toQuery(queryShardContext);
+        assertNull(queryShardContext.getParentFilter());
+        verify(innerQueryBuilder).toQuery(queryShardContext);
     }
 }

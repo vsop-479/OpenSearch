@@ -53,7 +53,7 @@ import java.util.function.Supplier;
 
 /**
  * Holds all the information that is used to build the sort order of an index.
- *
+ * <p>
  * The index sort settings are <b>final</b> and can be defined only at index creation.
  * These settings are divided in four lists that are merged during the initialization of this class:
  * <ul>
@@ -200,6 +200,7 @@ public final class IndexSortConfig {
      * or returns null if this index has no sort.
      */
     public Sort buildIndexSort(
+        boolean shouldWidenIndexSortType,
         Function<String, MappedFieldType> fieldTypeLookup,
         BiFunction<MappedFieldType, Supplier<SearchLookup>, IndexFieldData<?>> fieldDataLookup
     ) {
@@ -230,7 +231,11 @@ public final class IndexSortConfig {
             if (fieldData == null) {
                 throw new IllegalArgumentException("docvalues not found for index sort field:[" + sortSpec.field + "]");
             }
-            sortFields[i] = fieldData.sortField(sortSpec.missingValue, mode, null, reverse);
+            if (shouldWidenIndexSortType == true) {
+                sortFields[i] = fieldData.wideSortField(sortSpec.missingValue, mode, null, reverse);
+            } else {
+                sortFields[i] = fieldData.sortField(sortSpec.missingValue, mode, null, reverse);
+            }
             validateIndexSortField(sortFields[i]);
         }
         return new Sort(sortFields);

@@ -41,8 +41,8 @@ import org.opensearch.common.lease.Releasables;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.AggregatorFactories;
-import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.BucketOrder;
+import org.opensearch.search.aggregations.CardinalityUpperBound;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.LeafBucketCollector;
 import org.opensearch.search.aggregations.LeafBucketCollectorBase;
@@ -216,9 +216,7 @@ class DateHistogramAggregator extends BucketsAggregator implements SizedBucketAg
     }
 
     /**
-     * Returns the size of the bucket in specified units.
-     *
-     * If unitSize is null, returns 1.0
+     * @return the size of the bucket in specified units, or 1.0 if unitSize is null
      */
     @Override
     public double bucketSize(long bucket, Rounding.DateTimeUnit unitSize) {

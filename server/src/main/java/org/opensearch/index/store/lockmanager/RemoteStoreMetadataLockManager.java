@@ -14,9 +14,13 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.index.store.RemoteBufferedOutputDirectory;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A Class that implements Remote Store Lock Manager by creating lock files for the remote store files that needs to
@@ -48,6 +52,7 @@ public class RemoteStoreMetadataLockManager implements RemoteStoreLockManager {
 
     /**
      * Releases Locks acquired by a given acquirer which is passed in LockInfo Instance.
+     * If the lock file doesn't exist for the acquirer, release will be a no-op.
      * Right now this method is only used to release locks for a given acquirer,
      * This can be extended in future to handle other cases as well, like:
      * - release lock for given fileToLock and AcquirerId
@@ -59,16 +64,26 @@ public class RemoteStoreMetadataLockManager implements RemoteStoreLockManager {
     public void release(LockInfo lockInfo) throws IOException {
         assert lockInfo instanceof FileLockInfo : "lockInfo should be instance of FileLockInfo";
         String[] lockFiles = lockDirectory.listAll();
+        try {
+            String lockToRelease = ((FileLockInfo) lockInfo).getLockForAcquirer(lockFiles);
+            lockDirectory.deleteFile(lockToRelease);
+        } catch (NoSuchFileException e) {
+            // Ignoring if the file to be deleted is not present.
+            logger.info("No lock file found for acquirerId: {}", ((FileLockInfo) lockInfo).getAcquirerId());
+        }
+    }
 
-        // ideally there should be only one lock per acquirer, but just to handle any stale locks,
-        // we try to release all the locks for the acquirer.
-        List<String> locksToRelease = ((FileLockInfo) lockInfo).getLocksForAcquirer(lockFiles);
-        if (locksToRelease.size() > 1) {
-            logger.warn(locksToRelease.size() + " locks found for acquirer " + ((FileLockInfo) lockInfo).getAcquirerId());
+    public String fetchLock(String filenamePrefix, String acquirerId) throws IOException {
+        Collection<String> lockFiles = lockDirectory.listFilesByPrefix(filenamePrefix);
+        List<String> lockFilesForAcquirer = lockFiles.stream()
+            .filter(lockFile -> acquirerId.equals(FileLockInfo.LockFileUtils.getAcquirerIdFromLock(lockFile)))
+            .map(FileLockInfo.LockFileUtils::getFileToLockNameFromLock)
+            .collect(Collectors.toList());
+        if (lockFilesForAcquirer.size() == 0) {
+            throw new FileNotFoundException("No lock file found for prefix: " + filenamePrefix + " and acquirerId: " + acquirerId);
         }
-        for (String lock : locksToRelease) {
-            lockDirectory.deleteFile(lock);
-        }
+        assert lockFilesForAcquirer.size() == 1;
+        return lockFilesForAcquirer.get(0);
     }
 
     /**
@@ -82,6 +97,27 @@ public class RemoteStoreMetadataLockManager implements RemoteStoreLockManager {
         assert lockInfo instanceof FileLockInfo : "lockInfo should be instance of FileLockInfo";
         Collection<String> lockFiles = lockDirectory.listFilesByPrefix(((FileLockInfo) lockInfo).getLockPrefix());
         return !lockFiles.isEmpty();
+    }
+
+    /**
+     * Acquires lock on the file mentioned in originalLockInfo for acquirer mentioned in clonedLockInfo.
+     * Snapshot layer enforces thread safety by having checks in place to ensure that the source snapshot is not being deleted before proceeding
+     * with the clone operation. Hence, the original lock file would always be present while acquiring the lock for cloned snapshot.
+     * @param originalLockInfo lock info instance for original lock.
+     * @param clonedLockInfo lock info instance for which lock needs to be cloned.
+     * @throws IOException throws IOException if originalResource itself do not have any lock.
+     */
+    @Override
+    public void cloneLock(LockInfo originalLockInfo, LockInfo clonedLockInfo) throws IOException {
+        assert originalLockInfo instanceof FileLockInfo : "originalLockInfo should be instance of FileLockInfo";
+        assert clonedLockInfo instanceof FileLockInfo : "clonedLockInfo should be instance of FileLockInfo";
+        String originalResourceId = Objects.requireNonNull(((FileLockInfo) originalLockInfo).getAcquirerId());
+        String clonedResourceId = Objects.requireNonNull(((FileLockInfo) clonedLockInfo).getAcquirerId());
+        assert originalResourceId != null && clonedResourceId != null : "provided resourceIds should not be null";
+        String[] lockFiles = lockDirectory.listAll();
+        String lockNameForAcquirer = ((FileLockInfo) originalLockInfo).getLockForAcquirer(lockFiles);
+        String fileToLockName = FileLockInfo.LockFileUtils.getFileToLockNameFromLock(lockNameForAcquirer);
+        acquire(FileLockInfo.getLockInfoBuilder().withFileToLock(fileToLockName).withAcquirerId(clonedResourceId).build());
     }
 
     public void delete() throws IOException {

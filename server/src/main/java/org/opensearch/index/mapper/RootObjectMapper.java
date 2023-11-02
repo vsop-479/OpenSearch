@@ -34,11 +34,11 @@ package org.opensearch.index.mapper;
 
 import org.opensearch.common.Explicit;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.Strings;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.Strings;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.DynamicTemplate.XContentFieldType;
@@ -72,7 +72,7 @@ public class RootObjectMapper extends ObjectMapper {
      */
     public static class Defaults {
         public static final DateFormatter[] DYNAMIC_DATE_TIME_FORMATTERS = new DateFormatter[] {
-            DateFieldMapper.DEFAULT_DATE_TIME_FORMATTER,
+            DateFieldMapper.getDefaultDateTimeFormatter(),
             DateFormatter.forPattern("yyyy/MM/dd HH:mm:ss||yyyy/MM/dd||epoch_millis") };
         public static final boolean DATE_DETECTION = true;
         public static final boolean NUMERIC_DETECTION = false;
@@ -459,7 +459,7 @@ public class RootObjectMapper extends ObjectMapper {
                 Locale.ROOT,
                 "dynamic template [%s] has invalid content [%s]",
                 dynamicTemplate.getName(),
-                Strings.toString(XContentType.JSON, dynamicTemplate)
+                Strings.toString(MediaTypeRegistry.JSON, dynamicTemplate)
             );
 
             final String deprecationMessage;

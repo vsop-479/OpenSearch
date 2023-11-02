@@ -37,10 +37,10 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.util.CollectionUtil;
 import org.opensearch.common.Rounding;
 import org.opensearch.common.Rounding.Prepared;
-import org.opensearch.common.util.ByteArray;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.util.IntArray;
 import org.opensearch.common.util.LongArray;
-import org.opensearch.common.lease.Releasables;
+import org.opensearch.core.common.util.ByteArray;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.aggregations.Aggregator;
 import org.opensearch.search.aggregations.AggregatorFactories;
@@ -546,7 +546,7 @@ abstract class AutoDateHistogramAggregator extends DeferableBucketAggregator {
 
                 /**
                  * Increase the rounding of {@code owningBucketOrd} using
-                 * estimated, bucket counts, {@link #rebucket() rebucketing} the all
+                 * estimated, bucket counts, {@link FromMany#rebucket()} rebucketing} the all
                  * buckets if the estimated number of wasted buckets is too high.
                  */
                 private int increaseRoundingIfNeeded(long owningBucketOrd, int oldEstimatedBucketCount, long newKey, int oldRounding) {

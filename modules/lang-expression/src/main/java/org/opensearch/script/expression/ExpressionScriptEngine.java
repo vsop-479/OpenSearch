@@ -37,6 +37,7 @@ import org.apache.lucene.expressions.SimpleBindings;
 import org.apache.lucene.expressions.js.JavascriptCompiler;
 import org.apache.lucene.expressions.js.VariableContext;
 import org.apache.lucene.search.DoubleValuesSource;
+import org.apache.lucene.search.IndexSearcher;
 import org.opensearch.SpecialPermission;
 import org.opensearch.common.Nullable;
 import org.opensearch.index.fielddata.IndexFieldData;
@@ -72,7 +73,7 @@ import java.util.function.Function;
 
 /**
  * Provides the infrastructure for Lucene expressions as a scripting language for OpenSearch.
- *
+ * <p>
  * Only contexts returning numeric types or {@link Object} are supported.
  */
 public class ExpressionScriptEngine implements ScriptEngine {
@@ -110,7 +111,7 @@ public class ExpressionScriptEngine implements ScriptEngine {
 
         contexts.put(ScoreScript.CONTEXT, (Expression expr) -> new ScoreScript.Factory() {
             @Override
-            public ScoreScript.LeafFactory newFactory(Map<String, Object> params, SearchLookup lookup) {
+            public ScoreScript.LeafFactory newFactory(Map<String, Object> params, SearchLookup lookup, IndexSearcher indexSearcher) {
                 return newScoreScript(expr, lookup, params);
             }
 

@@ -38,8 +38,8 @@ import org.opensearch.common.Explicit;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.analysis.NamedAnalyzer;
 import org.opensearch.index.mapper.Mapper.TypeParser.ParserContext;
 
@@ -63,11 +63,11 @@ import java.util.function.Supplier;
 
 /**
  * Defines how a particular field should be indexed and searched
- *
+ * <p>
  * Configuration {@link Parameter}s for the mapper are defined on a {@link Builder} subclass,
  * and returned by its {@link Builder#getParameters()} method.  Merging, serialization
  * and parsing of the mapper are all mediated through this set of parameters.
- *
+ * <p>
  * Subclasses should implement a {@link Builder} that is returned from the
  * {@link #getMergeBuilder()} method, initialised with the existing builder.
  *
@@ -86,7 +86,7 @@ public abstract class ParametrizedFieldMapper extends FieldMapper {
 
     /**
      * Returns a {@link Builder} to be used for merging and serialization
-     *
+     * <p>
      * Implement as follows:
      * {@code return new MyBuilder(simpleName()).init(this); }
      */
@@ -256,7 +256,7 @@ public abstract class ParametrizedFieldMapper extends FieldMapper {
 
         /**
          * Adds a deprecated parameter name.
-         *
+         * <p>
          * If this parameter name is encountered during parsing, a deprecation warning will
          * be emitted.  The parameter will be serialized with its main name.
          */

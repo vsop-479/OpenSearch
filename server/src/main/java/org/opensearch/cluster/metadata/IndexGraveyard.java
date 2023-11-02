@@ -35,19 +35,19 @@ package org.opensearch.cluster.metadata;
 import org.opensearch.Version;
 import org.opensearch.cluster.Diff;
 import org.opensearch.cluster.NamedDiff;
-import org.opensearch.core.ParseField;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.time.DateFormatter;
+import org.opensearch.core.ParseField;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.index.Index;
 import org.opensearch.core.xcontent.ContextParser;
 import org.opensearch.core.xcontent.ObjectParser;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.Index;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -61,7 +61,7 @@ import java.util.Objects;
 
 /**
  * A collection of tombstones for explicitly marking indices as deleted in the cluster state.
- *
+ * <p>
  * The cluster state contains a list of index tombstones for indices that have been
  * deleted in the cluster.  Because cluster states are processed asynchronously by
  * nodes and a node could be removed from the cluster for a period of time, the
@@ -250,7 +250,7 @@ public final class IndexGraveyard implements Metadata.Custom {
 
         /**
          * Purge tombstone entries.  Returns the number of entries that were purged.
-         *
+         * <p>
          * Tombstones are purged if the number of tombstones in the list
          * is greater than the input parameter of maximum allowed tombstones.
          * Tombstones are purged until the list is equal to the maximum allowed.

@@ -34,12 +34,12 @@ package org.opensearch.cluster;
 
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterState.Custom;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.index.shard.ShardId;
 import org.opensearch.snapshots.Snapshot;
 
 import java.io.IOException;
@@ -189,7 +189,7 @@ public class RestoreInProgress extends AbstractNamedDiffable<Custom> implements 
         /**
          * Returns list of shards that being restore and their status
          *
-         * @return list of shards
+         * @return map of shard id to shard restore status
          */
         public Map<ShardId, ShardRestoreStatus> shards() {
             return this.shards;

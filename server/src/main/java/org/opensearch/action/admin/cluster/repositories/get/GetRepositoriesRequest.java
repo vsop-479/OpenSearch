@@ -34,9 +34,9 @@ package org.opensearch.action.admin.cluster.repositories.get;
 
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.clustermanager.ClusterManagerNodeReadRequest;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.common.Strings;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 
@@ -88,7 +88,7 @@ public class GetRepositoriesRequest extends ClusterManagerNodeReadRequest<GetRep
     /**
      * The names of the repositories.
      *
-     * @return list of repositories
+     * @return  array of repository names
      */
     public String[] repositories() {
         return this.repositories;

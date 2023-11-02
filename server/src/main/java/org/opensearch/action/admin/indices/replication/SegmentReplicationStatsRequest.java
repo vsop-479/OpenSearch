@@ -10,9 +10,9 @@ package org.opensearch.action.admin.indices.replication;
 
 import org.opensearch.action.support.IndicesOptions;
 import org.opensearch.action.support.broadcast.BroadcastRequest;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.common.Strings;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 
 import java.io.IOException;
 
@@ -89,7 +89,7 @@ public class SegmentReplicationStatsRequest extends BroadcastRequest<SegmentRepl
     /**
      * Contains list of shard id's if shards are passed, empty otherwise. Array is empty by default.
      *
-     * @return  list of shard id's if shards are passed, empty otherwise
+     * @return  array of shard id's if shards are passed, empty otherwise
      */
     public String[] shards() {
         return shards;

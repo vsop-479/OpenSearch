@@ -37,18 +37,19 @@ import org.apache.lucene.store.AlreadyClosedException;
 import org.opensearch.Version;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.bytes.BytesArray;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.io.stream.ReleasableBytesStreamOutput;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.lease.Releasable;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.common.util.concurrent.ReleasableLock;
 import org.opensearch.common.util.io.IOUtils;
-import org.opensearch.common.lease.Releasable;
-import org.opensearch.common.lease.Releasables;
 import org.opensearch.core.common.Strings;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.engine.Engine;
@@ -59,7 +60,6 @@ import org.opensearch.index.mapper.Uid;
 import org.opensearch.index.seqno.SequenceNumbers;
 import org.opensearch.index.shard.AbstractIndexShardComponent;
 import org.opensearch.index.shard.IndexShardComponent;
-import org.opensearch.index.shard.ShardId;
 
 import java.io.Closeable;
 import java.io.EOFException;
@@ -840,7 +840,7 @@ public abstract class Translog extends AbstractIndexShardComponent implements In
 
     /**
      * Closes the translog if the current translog writer experienced a tragic exception.
-     *
+     * <p>
      * Note that in case this thread closes the translog it must not already be holding a read lock on the translog as it will acquire a
      * write lock in the course of closing the translog
      *
@@ -1976,7 +1976,7 @@ public abstract class Translog extends AbstractIndexShardComponent implements In
     /**
      * Creates a new empty translog within the specified {@code location} that contains the given {@code initialGlobalCheckpoint},
      * {@code primaryTerm} and {@code translogUUID}.
-     *
+     * <p>
      * This method should be used directly under specific circumstances like for shards that will see no indexing. Specifying a non-unique
      * translog UUID could cause a lot of issues and that's why in all (but one) cases the method
      * {@link #createEmptyTranslog(Path, long, ShardId, long)} should be used instead.
@@ -2033,5 +2033,9 @@ public abstract class Translog extends AbstractIndexShardComponent implements In
         );
         writer.close();
         return uuid;
+    }
+
+    public long getMinUnreferencedSeqNoInSegments(long minUnrefCheckpointInLastCommit) {
+        return minUnrefCheckpointInLastCommit;
     }
 }

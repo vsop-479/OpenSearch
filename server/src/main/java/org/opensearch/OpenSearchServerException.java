@@ -8,11 +8,13 @@
 
 package org.opensearch;
 
-import org.opensearch.index.snapshots.IndexShardSnapshotException;
+import org.opensearch.core.index.snapshots.IndexShardSnapshotException;
+import org.opensearch.crypto.CryptoRegistryException;
 
 import static org.opensearch.OpenSearchException.OpenSearchExceptionHandle;
 import static org.opensearch.OpenSearchException.OpenSearchExceptionHandleRegistry.registerExceptionHandle;
 import static org.opensearch.OpenSearchException.UNKNOWN_VERSION_ADDED;
+import static org.opensearch.Version.V_2_10_0;
 import static org.opensearch.Version.V_2_1_0;
 import static org.opensearch.Version.V_2_4_0;
 import static org.opensearch.Version.V_2_5_0;
@@ -285,14 +287,6 @@ public final class OpenSearchServerException {
                 org.opensearch.transport.TransportException.class,
                 org.opensearch.transport.TransportException::new,
                 34,
-                UNKNOWN_VERSION_ADDED
-            )
-        );
-        registerExceptionHandle(
-            new OpenSearchExceptionHandle(
-                org.opensearch.OpenSearchParseException.class,
-                org.opensearch.OpenSearchParseException::new,
-                35,
                 UNKNOWN_VERSION_ADDED
             )
         );
@@ -917,14 +911,6 @@ public final class OpenSearchServerException {
         );
         registerExceptionHandle(
             new OpenSearchExceptionHandle(
-                org.opensearch.common.breaker.CircuitBreakingException.class,
-                org.opensearch.common.breaker.CircuitBreakingException::new,
-                133,
-                UNKNOWN_VERSION_ADDED
-            )
-        );
-        registerExceptionHandle(
-            new OpenSearchExceptionHandle(
                 org.opensearch.transport.NodeNotConnectedException.class,
                 org.opensearch.transport.NodeNotConnectedException::new,
                 134,
@@ -1000,14 +986,6 @@ public final class OpenSearchServerException {
                 org.opensearch.OpenSearchStatusException.class,
                 org.opensearch.OpenSearchStatusException::new,
                 145,
-                UNKNOWN_VERSION_ADDED
-            )
-        );
-        registerExceptionHandle(
-            new OpenSearchExceptionHandle(
-                org.opensearch.tasks.TaskCancelledException.class,
-                org.opensearch.tasks.TaskCancelledException::new,
-                146,
                 UNKNOWN_VERSION_ADDED
             )
         );
@@ -1196,6 +1174,7 @@ public final class OpenSearchServerException {
                 V_2_7_0
             )
         );
+        registerExceptionHandle(new OpenSearchExceptionHandle(CryptoRegistryException.class, CryptoRegistryException::new, 171, V_2_10_0));
         registerExceptionHandle(
             new OpenSearchExceptionHandle(
                 org.opensearch.cluster.block.IndexCreateBlockException.class,

@@ -8,6 +8,7 @@
 
 package org.opensearch.index.store.lockmanager;
 
+import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 public class FileLockInfo implements LockInfo {
     private String fileToLock;
     private String acquirerId;
+    private static final int INVALID_INDEX = -1;
 
     public String getAcquirerId() {
         return acquirerId;
@@ -50,13 +52,21 @@ public class FileLockInfo implements LockInfo {
         return fileToLock + RemoteStoreLockManagerUtils.SEPARATOR;
     }
 
-    List<String> getLocksForAcquirer(String[] lockFiles) {
+    String getLockForAcquirer(String[] lockFiles) throws NoSuchFileException {
         if (acquirerId == null || acquirerId.isBlank()) {
             throw new IllegalArgumentException("Acquirer ID should be provided");
         }
-        return Arrays.stream(lockFiles)
+        List<String> locksForAcquirer = Arrays.stream(lockFiles)
             .filter(lockFile -> acquirerId.equals(LockFileUtils.getAcquirerIdFromLock(lockFile)))
             .collect(Collectors.toList());
+
+        if (locksForAcquirer.isEmpty()) {
+            throw new NoSuchFileException("No lock file found for the acquirer: " + acquirerId);
+        }
+        if (locksForAcquirer.size() != 1) {
+            throw new IllegalStateException("Expected single lock file but found [" + locksForAcquirer.size() + "] lock files");
+        }
+        return locksForAcquirer.get(0);
     }
 
     public static LockInfoBuilder getLockInfoBuilder() {
@@ -79,21 +89,34 @@ public class FileLockInfo implements LockInfo {
         }
 
         public static String getFileToLockNameFromLock(String lockName) {
-            String[] lockNameTokens = lockName.split(RemoteStoreLockManagerUtils.SEPARATOR);
-
-            if (lockNameTokens.length != 2) {
-                throw new IllegalArgumentException("Provided Lock Name " + lockName + " is not Valid.");
+            // use proper separator for the lock file depending on the version it is created
+            String lockSeparator = lockName.endsWith(RemoteStoreLockManagerUtils.PRE_OS210_LOCK_FILE_EXTENSION)
+                ? RemoteStoreLockManagerUtils.PRE_OS210_LOCK_SEPARATOR
+                : RemoteStoreLockManagerUtils.SEPARATOR;
+            final int indexOfSeparator = lockName.lastIndexOf(lockSeparator);
+            if (indexOfSeparator == INVALID_INDEX) {
+                throw new IllegalArgumentException("Provided lock name: " + lockName + " is invalid with separator: " + lockSeparator);
             }
-            return lockNameTokens[0];
+            return lockName.substring(0, indexOfSeparator);
         }
 
         public static String getAcquirerIdFromLock(String lockName) {
-            String[] lockNameTokens = lockName.split(RemoteStoreLockManagerUtils.SEPARATOR);
+            String lockExtension = RemoteStoreLockManagerUtils.LOCK_FILE_EXTENSION;
+            String lockSeparator = RemoteStoreLockManagerUtils.SEPARATOR;
 
-            if (lockNameTokens.length != 2) {
-                throw new IllegalArgumentException("Provided Lock Name " + lockName + " is not Valid.");
+            // check if lock file is created on version <=2.10
+            if (lockName.endsWith(RemoteStoreLockManagerUtils.PRE_OS210_LOCK_FILE_EXTENSION)) {
+                lockSeparator = RemoteStoreLockManagerUtils.PRE_OS210_LOCK_SEPARATOR;
+                lockExtension = RemoteStoreLockManagerUtils.PRE_OS210_LOCK_FILE_EXTENSION;
             }
-            return lockNameTokens[1].replace(RemoteStoreLockManagerUtils.LOCK_FILE_EXTENSION, "");
+            final int indexOfSeparator = lockName.lastIndexOf(lockSeparator);
+            final int indexOfExt = lockName.lastIndexOf(lockExtension);
+            if (indexOfSeparator == INVALID_INDEX || indexOfExt == INVALID_INDEX) {
+                throw new IllegalArgumentException(
+                    "Provided lock name: " + lockName + " is invalid with separator: " + lockSeparator + " and extension: " + lockExtension
+                );
+            }
+            return lockName.substring(indexOfSeparator + lockSeparator.length(), indexOfExt);
         }
     }
 

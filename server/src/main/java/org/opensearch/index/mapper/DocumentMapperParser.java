@@ -37,9 +37,9 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.compress.CompressedXContent;
 import org.opensearch.common.time.DateFormatter;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.similarity.SimilarityService;
@@ -119,7 +119,7 @@ public class DocumentMapperParser {
     public DocumentMapper parse(@Nullable String type, CompressedXContent source) throws MapperParsingException {
         Map<String, Object> mapping = null;
         if (source != null) {
-            Map<String, Object> root = XContentHelper.convertToMap(source.compressedReference(), true, XContentType.JSON).v2();
+            Map<String, Object> root = XContentHelper.convertToMap(source.compressedReference(), true, MediaTypeRegistry.JSON).v2();
             Tuple<String, Map<String, Object>> t = extractMapping(type, root);
             type = t.v1();
             mapping = t.v2();
@@ -197,7 +197,7 @@ public class DocumentMapperParser {
 
     /**
      * Given an optional type name and mapping definition, returns the type and a normalized form of the mappings.
-     *
+     * <p>
      * The provided mapping definition may or may not contain the type name as the root key in the map. This method
      * attempts to unwrap the mappings, so that they no longer contain a type name at the root. If no type name can
      * be found, through either the 'type' parameter or by examining the provided mappings, then an exception will be
@@ -205,7 +205,6 @@ public class DocumentMapperParser {
      *
      * @param type An optional type name.
      * @param root The mapping definition.
-     *
      * @return A tuple of the form (type, normalized mappings).
      */
     @SuppressWarnings({ "unchecked" })

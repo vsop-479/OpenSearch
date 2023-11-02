@@ -8,29 +8,41 @@
 
 package org.opensearch.search.pipeline;
 
+import org.opensearch.action.search.SearchPhaseContext;
+import org.opensearch.action.search.SearchPhaseResults;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.search.SearchPhaseResult;
 
 /**
  * Groups a search pipeline based on a request and the request after being transformed by the pipeline.
  *
  * @opensearch.internal
  */
-public final class PipelinedRequest {
+public final class PipelinedRequest extends SearchRequest {
     private final Pipeline pipeline;
-    private final SearchRequest transformedRequest;
 
     PipelinedRequest(Pipeline pipeline, SearchRequest transformedRequest) {
+        super(transformedRequest);
         this.pipeline = pipeline;
-        this.transformedRequest = transformedRequest;
     }
 
-    public SearchResponse transformResponse(SearchResponse response) {
-        return pipeline.transformResponse(transformedRequest, response);
+    public void transformRequest(ActionListener<SearchRequest> requestListener) {
+        pipeline.transformRequest(this, requestListener);
     }
 
-    public SearchRequest transformedRequest() {
-        return transformedRequest;
+    public ActionListener<SearchResponse> transformResponseListener(ActionListener<SearchResponse> responseListener) {
+        return pipeline.transformResponseListener(this, responseListener);
+    }
+
+    public <Result extends SearchPhaseResult> void transformSearchPhaseResults(
+        final SearchPhaseResults<Result> searchPhaseResult,
+        final SearchPhaseContext searchPhaseContext,
+        final String currentPhase,
+        final String nextPhase
+    ) {
+        pipeline.runSearchPhaseResultsTransformer(searchPhaseResult, searchPhaseContext, currentPhase, nextPhase);
     }
 
     // Visible for testing

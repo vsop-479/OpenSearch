@@ -33,9 +33,9 @@
 package org.opensearch.search.aggregations.support;
 
 import org.opensearch.core.ParseField;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.index.mapper.DateFieldMapper;
 import org.opensearch.search.DocValueFormat;
 
@@ -61,7 +61,7 @@ public enum ValueType implements Writeable {
         "date",
         "date",
         CoreValuesSourceType.DATE,
-        new DocValueFormat.DateTime(DateFieldMapper.DEFAULT_DATE_TIME_FORMATTER, ZoneOffset.UTC, DateFieldMapper.Resolution.MILLISECONDS)
+        new DocValueFormat.DateTime(DateFieldMapper.getDefaultDateTimeFormatter(), ZoneOffset.UTC, DateFieldMapper.Resolution.MILLISECONDS)
     ),
     IP((byte) 6, "ip", "ip", CoreValuesSourceType.IP, DocValueFormat.IP),
     // TODO: what is the difference between "number" and "numeric"?

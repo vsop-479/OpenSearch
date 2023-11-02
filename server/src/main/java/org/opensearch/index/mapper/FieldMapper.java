@@ -38,9 +38,9 @@ import org.apache.lucene.index.IndexOptions;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Setting.Property;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.xcontent.AbstractXContentParser;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.core.xcontent.AbstractXContentParser;
 import org.opensearch.index.analysis.NamedAnalyzer;
 import org.opensearch.index.mapper.FieldNamesFieldMapper.FieldNamesFieldType;
 
@@ -305,7 +305,7 @@ public abstract class FieldMapper extends Mapper implements Cloneable {
 
     /**
      * Parse the field value and populate the fields on {@link ParseContext#doc()}.
-     *
+     * <p>
      * Implementations of this method should ensure that on failing to parse parser.currentToken() must be the
      * current failing token
      */
